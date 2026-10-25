@@ -51,7 +51,10 @@ async function generateWith(model: string, opts: GenerateOptions): Promise<strin
       .map((block) => (block.type === 'text' ? block.text : ''))
       .join('')
       .trim();
-    if (!text) throw new HttpError(502, 'Model boş yanıt döndürdü.');
+    if (!text) {
+      const kinds = res.content.map((b) => b.type).join(', ') || 'yok';
+      throw new HttpError(502, `Model boş yanıt döndürdü (bitiş nedeni: ${res.stop_reason ?? '?'}, içerik türleri: ${kinds}).`);
+    }
     return text;
   } catch (err) {
     if (err instanceof HttpError) throw err;

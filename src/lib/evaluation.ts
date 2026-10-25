@@ -30,8 +30,31 @@ export async function replyAsParent(args: {
 
   const facts = allowedFacts(clinicalCase, rapport.disclosureLevel);
   const system = buildParentSystemPrompt(clinicalCase, persona, facts, rapport);
-  const reply = await generate({ system, messages: toLlmMessages(messages), maxTokens: 300, temperature: 0.7 });
+  const reply = await generateWithFallback(generate, system, messages);
   return { reply, disclosureLevel: rapport.disclosureLevel, rapport };
+}
+
+/** Model yanıtı anlaşılmadığında ebeveynin rolünden çıkmadan söyleyebileceği cümleler. */
+const FALLBACK_REPLIES = [
+  'Pardon, tam anlayamadım. Çocuğumun beslenmesiyle ilgili mi soruyorsunuz? Bir daha söyler misiniz?',
+  'Kusura bakmayın, sizi tam duyamadım. Bebeğimin beslenmesi hakkında konuşuyorduk, değil mi? Tekrar edebilir misiniz?',
+  'Afedersiniz, ne demek istediğinizi anlayamadım. Çocuğumla ilgili sorunuzu yeniden sorar mısınız?',
+];
+
+/**
+ * Model boş yanıt verirse bir kez daha dener; yine boşsa kullanıcıya hata göstermek yerine
+ * ebeveyn rolünde nazik bir "anlayamadım" cümlesi döndürür. Gerçek hatalar (anahtar, ağ vb.) yine fırlatılır.
+ */
+async function generateWithFallback(generate: Generate, system: string, messages: TranscriptMessage[]): Promise<string> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await generate({ system, messages: toLlmMessages(messages), maxTokens: 2048, temperature: 0.7 });
+    } catch (err) {
+      const empty = err instanceof HttpError && err.status === 502 && err.message.startsWith('Model boş yanıt');
+      if (!empty) throw err;
+    }
+  }
+  return FALLBACK_REPLIES[messages.length % FALLBACK_REPLIES.length] ?? FALLBACK_REPLIES[0]!;
 }
 
 async function runEvaluator(generate: Generate, system: string, transcriptText: string): Promise<EvaluatorRawOutput> {
@@ -43,7 +66,7 @@ async function runEvaluator(generate: Generate, system: string, transcriptText: 
     const text = await generate({
       system,
       messages: [{ role: 'user', content: userMessage + repairHint }],
-      maxTokens: 4000,
+      maxTokens: 8000,
       temperature: 0,
     });
     try {
