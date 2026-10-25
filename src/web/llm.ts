@@ -32,7 +32,6 @@ export function createBrowserGenerate(cfg: BrowserConfig) {
           max_tokens: opts.maxTokens,
           system: opts.system,
           messages: opts.messages,
-          ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
         }),
       });
     } catch {
