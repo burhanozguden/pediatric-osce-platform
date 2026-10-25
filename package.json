@@ -1,0 +1,30 @@
+{
+  "name": "pediatric-osce-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pediatrik Klinik Beslenme YZ OSCE Simülasyon Platformu (TÜSEB AR-GE B, BDB-UÇEP 2025 uyumlu)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "generate:cases": "python3 scripts/generate-cases.py"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.18"
+  }
+}
