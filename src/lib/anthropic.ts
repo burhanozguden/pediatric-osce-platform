@@ -46,7 +46,6 @@ async function generateWith(model: string, opts: GenerateOptions): Promise<strin
       max_tokens: opts.maxTokens,
       system: opts.system,
       messages: opts.messages,
-      ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
     });
     const text = res.content
       .map((block) => (block.type === 'text' ? block.text : ''))
