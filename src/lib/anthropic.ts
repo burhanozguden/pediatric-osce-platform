@@ -1,15 +1,23 @@
 /**
- * Anthropic SDK sarmalayıcısı.
+ * Anthropic SDK sarmalayıcısı (yalnızca sunucu tarafı).
  * Model adı ANTHROPIC_MODEL ortam değişkeninden okunur (varsayılan: claude-sonnet-5-5).
  */
 import Anthropic from '@anthropic-ai/sdk';
-import type { TranscriptMessage } from '@/types';
+import type { GenerateOptions } from './llmUtils';
 import { HttpError } from './validate';
+
+export { extractJson, toLlmMessages } from './llmUtils';
+export type { GenerateOptions, LlmMessage } from './llmUtils';
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 
 export function getModel(): string {
   return process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_MODEL;
+}
+
+/** Karne modeli: ANTHROPIC_EVAL_MODEL yoksa ANTHROPIC_MODEL kullanılır. */
+export function getEvalModel(): string {
+  return process.env.ANTHROPIC_EVAL_MODEL?.trim() || getModel();
 }
 
 let client: Anthropic | null = null;
@@ -23,22 +31,18 @@ export function getClient(): Anthropic {
   return client;
 }
 
-export interface LlmMessage {
-  role: 'user' | 'assistant';
-  content: string;
+export function generateText(opts: GenerateOptions): Promise<string> {
+  return generateWith(getModel(), opts);
 }
 
-export interface GenerateOptions {
-  system: string;
-  messages: LlmMessage[];
-  maxTokens: number;
-  temperature?: number;
+export function generateEvalText(opts: GenerateOptions): Promise<string> {
+  return generateWith(getEvalModel(), opts);
 }
 
-export async function generateText(opts: GenerateOptions): Promise<string> {
+async function generateWith(model: string, opts: GenerateOptions): Promise<string> {
   try {
     const res = await getClient().messages.create({
-      model: getModel(),
+      model,
       max_tokens: opts.maxTokens,
       system: opts.system,
       messages: opts.messages,
@@ -55,33 +59,4 @@ export async function generateText(opts: GenerateOptions): Promise<string> {
     const message = err instanceof Error ? err.message : 'bilinmeyen hata';
     throw new HttpError(502, 'Model çağrısı başarısız oldu.', message);
   }
-}
-
-/**
- * Transkripti Anthropic mesaj formatına çevirir:
- * öğrenci → user, ebeveyn → assistant; ardışık aynı roller birleştirilir;
- * ilk mesaj her zaman user olmalıdır (gerekirse sahne başlangıcı eklenir).
- */
-export function toLlmMessages(transcript: TranscriptMessage[]): LlmMessage[] {
-  const out: LlmMessage[] = [];
-  for (const m of transcript) {
-    const role: LlmMessage['role'] = m.role === 'student' ? 'user' : 'assistant';
-    const last = out[out.length - 1];
-    if (last && last.role === role) last.content += `\n${m.content}`;
-    else out.push({ role, content: m.content });
-  }
-  if (out[0]?.role !== 'user') {
-    out.unshift({ role: 'user', content: '(Görüşme başladı; öğrenci odaya girdi.)' });
-  }
-  return out;
-}
-
-/** Model metninden JSON nesnesini ayıklar (kod bloğu veya ön/son metin toleransı). */
-export function extractJson(text: string): unknown {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text);
-  const candidate = fenced?.[1] ?? text;
-  const start = candidate.indexOf('{');
-  const end = candidate.lastIndexOf('}');
-  if (start === -1 || end <= start) throw new Error('Yanıtta JSON nesnesi bulunamadı.');
-  return JSON.parse(candidate.slice(start, end + 1));
 }
