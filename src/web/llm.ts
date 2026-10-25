@@ -11,6 +11,7 @@ export interface BrowserConfig {
 }
 
 interface AnthropicResponse {
+  stop_reason?: string;
   content?: { type: string; text?: string }[];
   error?: { type?: string; message?: string };
 }
@@ -50,7 +51,10 @@ export function createBrowserGenerate(cfg: BrowserConfig) {
       throw new HttpError(res.status, data.error?.message ?? `Model çağrısı başarısız (HTTP ${res.status}).`);
     }
     const text = (data.content ?? []).map((b) => (b.type === 'text' ? (b.text ?? '') : '')).join('').trim();
-    if (!text) throw new HttpError(502, 'Model boş yanıt döndürdü.');
+    if (!text) {
+      const kinds = (data.content ?? []).map((b) => b.type).join(', ') || 'yok';
+      throw new HttpError(502, `Model boş yanıt döndürdü (bitiş nedeni: ${data.stop_reason ?? '?'}, içerik türleri: ${kinds}).`);
+    }
     return text;
   };
 }
